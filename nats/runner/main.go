@@ -55,17 +55,17 @@ func main() {
 		// Execute the task via an HTTP handler
 		response := executeTaskViaHTTP(task)
 
-		// Publish the response to the "responses" subject
+		// Respond directly to the request
 		data, err := json.Marshal(response)
 		if err != nil {
 			log.Printf("Error marshalling response: %v", err)
 			return
 		}
 
-		if err := nc.Publish("responses", data); err != nil {
-			log.Printf("Error publishing response: %v", err)
+		if err := msg.Respond(data); err != nil {
+			log.Printf("Error responding to task %d: %v", task.ID, err)
 		} else {
-			log.Printf("Published response for Task %d", task.ID)
+			log.Printf("Sent response for Task %d", task.ID)
 		}
 	})
 	if err != nil {

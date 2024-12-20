@@ -58,19 +58,6 @@ func main() {
 	}
 	defer nc.Close()
 
-	// Subscribe to the "responses" subject to receive task responses
-	_, err = nc.Subscribe("responses", func(msg *nats.Msg) {
-		var response TaskResponse
-		if err := json.Unmarshal(msg.Data, &response); err != nil {
-			log.Printf("Error unmarshalling response: %v", err)
-			return
-		}
-		log.Printf("Received response for Task %d: %d - %s", response.TaskID, response.StatusCode, response.Body)
-	})
-	if err != nil {
-		log.Fatalf("Error subscribing to responses: %v", err)
-	}
-
 	// Periodically send dummy tasks
 	go func() {
 		for {
@@ -90,12 +77,20 @@ func main() {
 				continue
 			}
 
-			// Publish the task to the "tasks" subject
-			if err := nc.Publish("tasks", data); err != nil {
-				log.Printf("Error publishing task: %v", err)
-			} else {
-				log.Printf("Published Task %d to runners", taskID)
+			// Send the request and wait for response
+			msg, err := nc.Request("tasks", data, 1*time.Second)
+			if err != nil {
+				log.Printf("Error making request for task %d: %v", taskID, err)
+				continue
 			}
+
+			// Process the response
+			var response TaskResponse
+			if err := json.Unmarshal(msg.Data, &response); err != nil {
+				log.Printf("Error unmarshalling response: %v", err)
+				continue
+			}
+			log.Printf("Received response for Task %d: %d - %s", response.TaskID, response.StatusCode, response.Body)
 		}
 	}()
 
